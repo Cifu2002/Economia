@@ -1,0 +1,524 @@
+{% extends 'home/base.html' %}
+
+{% block title %}Simulador de Créditos - Banco {{site_name}}{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="container">
+    <h1 class="display-4">Simulador de Créditos</h1>
+    <p class="lead">Calcula tu crédito fácilmente</p>
+  </div>
+</section>
+
+<section class="container py-4">
+  <form method="post" class="card p-4 shadow">
+    {% csrf_token %}
+    <h4 class="mb-4">Completa los datos:</h4>
+
+
+    <div class="mb-3">
+      <label class="form-label" for="tipoCreditoSelect">Tipo de crédito:</label>
+      <select name="tipo_credito" class="form-control" id="tipoCreditoSelect" required>
+        <option value="">---------</option>
+        {% for tipo in form.fields.tipo_credito.queryset %}
+        <option value="{{ tipo.id }}" data-tipo="{{ tipo.tipo }}">{{ tipo.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% for field in form.get_standard_fields %}
+    <div class="mb-3">
+      <label class="form-label">{{ field.label_tag }}</label>
+      {{ field }}
+      <!-- Monto error -->
+      <div id="monto-error" style="display: none; color: rgb(0, 0, 0);"></div>
+      {% if field.errors %}
+      <div class="text-danger small">{{ field.errors }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="mb-3">
+      <button type="button" id="showDonationButton" class="btn btn-outline-primary">
+        Mostrar opciones de donación
+      </button>
+    </div>
+
+    <!-- Contenedor para los campos de donación -->
+    {% comment %} Campos de donación (ocultos por defecto) {% endcomment %}
+    <div id="donationFieldsContainer" style="display: none;">
+      <h4>Opciones adicionales</h4>
+      <!-- Donaciones -->
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.tipo_donacion.id_for_label }}">Tipo de donación</label>
+        {{ form.tipo_donacion }}
+        {% if form.tipo_donacion.errors %}
+        <div class="text-danger small">{{ form.tipo_donacion.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.donacion.id_for_label }}">Donaciones para fundaciones</label>
+        <div class="input-group">
+          {{ form.donacion }}
+          <span class="input-group-text" id="donacion-symbol">$</span>
+        </div>
+        {% if form.donacion.help_text %}
+        <div class="form-text">{{ form.donacion.help_text }}</div>
+        {% endif %}
+        {% if form.donacion.errors %}
+        <div class="text-danger small">{{ form.donacion.errors }}</div>
+        {% endif %}
+      </div>
+      <!-- Campos SOLCA en el contenedor de opciones adicionales -->
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.tipo_solca.id_for_label }}">Tipo de contribución SOLCA</label>
+        {{ form.tipo_solca }}
+        {% if form.tipo_solca.errors %}
+        <div class="text-danger small">{{ form.tipo_solca.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.solca.id_for_label }}">Contribución SOLCA</label>
+        <div class="input-group">
+          {{ form.solca }}
+          <span class="input-group-text" id="solca-symbol">%</span>
+        </div>
+        {% if form.solca.help_text %}
+        <div class="form-text">{{ form.solca.help_text }}</div>
+        {% endif %}
+        {% if form.solca.errors %}
+        <div class="text-danger small">{{ form.solca.errors }}</div>
+        {% endif %}
+      </div>
+      <!-- Seguro desgravem -->
+      {% for field in form.get_donation_fields %}
+      <div class="mb-3">
+        {% if field.field.widget.input_type == "checkbox" %}
+        <div class="form-check">
+          {{ field }}
+          <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        </div>
+        {% else %}
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% endif %}
+
+        {% if field.errors %}
+        <div class="text-danger small">{{ field.errors }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary">Calcular</button>
+  </form>
+  <h4></h4>
+  {% if resultado %}
+  <section class="container card p-4 shadow">
+    <hr>
+    <h2>Resultado de la Simulación</h2>
+    <hr>
+    <p><strong>Cuota mensual (sin seguro):</strong>${{ resultado.cuota }}</p>
+    {% if resultado.seguro_total > 0 %}
+    <p><strong>Seguro desgravamen total:</strong> ${{ resultado.seguro_total }}</p>
+    {% endif %}
+    <!-- Mostrar otras opciones resultado -->
+    {% if resultado.donacion > 0 %}
+    {% if resultado.tipo_donacion == 'monto' %}
+    <p><strong>Donación total:</strong> ${{ resultado.donacion }}</p>
+    {% elif resultado.tipo_donacion == 'porcentaje' %}
+    <p><strong>Donación total:</strong> ${{ resultado.donacion_dinero }}</p>
+    {% endif %}
+    {% endif %}
+
+
+    {% if resultado.solca > 0 %}
+    {% if resultado.tipo_solca == 'monto' %}
+    <p><strong>Total Solca:</strong> ${{ resultado.solca }}</p>
+    {% elif resultado.tipo_solca == 'porcentaje' %}
+    <p><strong>Total Solca:</strong> ${{ resultado.solca_dinero }}</p>
+    {% endif %}
+    {% endif %}
+
+    <p><strong>Cuota total mensual:</strong>${{ resultado.cuota_total }}</p>
+    <p><strong>Plazo:</strong>{{ resultado.plazo }} meses</p>
+    <p><strong>Interés efectivo anual:</strong>{{ resultado.interes_efectivo }}%</p>
+    <p><strong>Interés nominal anual:</strong>{{ resultado.interes }}%</p>
+    <p><strong>Total a pagar en {{ resultado.plazo }} meses:</strong> ${{ resultado.total_pagar }}</p>
+    <h3></h3>
+    <div class="d-flex"><a class="btn btn-outline-info ms-auto"
+        href="{% url 'main:generar_pdf' resultado.simulacion_id %}?solca={{ resultado.solca }}&tipo_solca={{ resultado.tipo_solca }}&donacion={{ resultado.donacion }}&tipo_donacion={{ resultado.tipo_donacion }}&seguro_desgravamen={{ resultado.seguro_desgravamen|yesno:'1,0' }}"
+        role="button">
+        Descargar tabla de amortización (PDF)
+      </a>
+    </div>
+
+  </section>
+  <br>
+  {% if resultado.tabla %}
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>Mes</th>
+        <th>Cuota</th>
+        <th>Interés</th>
+        <th>Capital</th>
+        {% if resultado.seguro_desgravamen %}
+        <th>Seguro</th>
+        {% endif %}
+        {% if resultado.donacion_mensual > 0 %}
+        <th>Donación</th>
+        {% endif %}
+        {% if resultado.solca_mensual > 0 %}
+        <th>SOLCA</th>
+        {% endif %}
+        <th>Cuota Total</th>
+        <th>Saldo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fila in resultado.tabla %}
+      <tr>
+        <td>{{ fila.mes }}</td>
+        <td>{{ fila.cuota }}</td>
+        <td>{{ fila.interes }}</td>
+        <td>{{ fila.capital }}</td>
+        {% if resultado.seguro_desgravamen %}
+        <td>{{ fila.seguro }}</td>
+        {% endif %}
+        {% if resultado.donacion_mensual > 0 %}
+        <td>{{ fila.donacion }}</td>
+        {% endif %}
+        {% if resultado.solca_mensual > 0 %}
+        <td>{{ fila.solca }}</td>
+        {% endif %}
+        <td>{{ fila.cuota_total }}</td>
+        <td>{{ fila.saldo }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+
+  </table>
+  {% endif %}
+
+</section>
+{% endif %}
+<script>
+  const PLAZO_OPCIONES = {
+    "Productivo Corporativo": [12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72],
+    "Productivo Empresarial": [12, 18, 24, 30, 36, 42, 48, 54, 60],
+    "Productivo PYMES": [6, 9, 12, 15, 18, 21, 24, 30, 36],
+    "Consumo": [6, 9, 12, 18, 24, 30, 36, 42, 48, 60],
+    "Educativo": [6, 9, 12, 18, 24, 30, 36],
+    "Educativo Social": [6, 9, 12, 15, 18, 21, 24],
+    "Vivienda de Interés Público": [60, 72, 84, 96, 108, 120, 132, 144, 156, 168, 180],
+    "Vivienda de Interés Social": [60, 72, 84, 96, 108, 120, 132, 144],
+    "Inmobiliario": [60, 66, 72, 78, 84, 90, 96, 102, 108, 114, 120],
+    "Microcrédito Minorista": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "Microcrédito de Acumulación Simple": [6, 9, 12, 15, 18, 21, 24],
+    "Microcrédito de Acumulación Ampliada": [6, 9, 12, 18, 24, 30, 36],
+    "Inversión Pública": [24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96]
+  };
+
+
+  const PLAZO_CHOICES = {
+    3: '3 meses',
+    4: '4 meses',
+    5: '5 meses',
+    6: '6 meses',
+    7: '7 meses',
+    8: '8 meses',
+    9: '9 meses',
+    10: '10 meses',
+    11: '11 meses',
+    12: '12 meses (1 año)',
+    15: '15 meses (1.25 años)',
+    18: '18 meses (1.5 años)',
+    21: '21 meses (1.75 años)',
+    24: '24 meses (2 años)',
+    30: '30 meses (2.5 años)',
+    36: '36 meses (3 años)',
+    42: '42 meses (3.5 años)',
+    48: '48 meses (4 años)',
+    54: '54 meses (4.5 años)',
+    60: '60 meses (5 años)',
+    66: '66 meses (5.5 años)',
+    72: '72 meses (6 años)',
+    78: '78 meses (6.5 años)',
+    84: '84 meses (7 años)',
+    90: '90 meses (7.5 años)',
+    96: '96 meses (8 años)',
+    102: '102 meses (8.5 años)',
+    108: '108 meses (9 años)',
+    114: '114 meses (9.5 años)',
+    120: '120 meses (10 años)',
+    126: '126 meses (10.5 años)',
+    132: '132 meses (11 años)',
+    144: '144 meses (12 años)',
+    150: '150 meses (12.5 años)',
+    156: '156 meses (13 años)',
+    168: '168 meses (14 años)',
+    180: '180 meses (15 años)'
+  };
+
+  const MONTOS_MINIMOS = {
+    "Productivo Corporativo": 5000,
+    "Productivo Empresarial": 1000,
+    "Productivo PYMES": 1000,
+    "Consumo": 500,
+    "Microcrédito Minorista": 500,
+    "Microcrédito de Acumulación Simple": 5000,
+    "Microcrédito de Acumulación Ampliada": 20000,
+    "Educativo": 500,
+    "Educativo Social": 500,
+    "Vivienda de Interés Social": 500,
+    "Vivienda de Interés Público": 1000,
+    "Inmobiliario": 1000,
+    "Inversión Pública": 1000
+  };
+
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const showDonationButton = document.getElementById('showDonationButton');
+    const donationFieldsContainer = document.getElementById('donationFieldsContainer');
+
+    if (showDonationButton && donationFieldsContainer) {
+      showDonationButton.addEventListener('click', function () {
+        // Cambiar la visibilidad del contenedor
+        if (donationFieldsContainer.style.display === 'none') {
+          donationFieldsContainer.style.display = 'block';
+          showDonationButton.textContent = 'Ocultar opciones de donación';
+          showDonationButton.classList.replace('btn-outline-primary', 'btn-outline-secondary');
+        } else {
+          donationFieldsContainer.style.display = 'none';
+          showDonationButton.textContent = 'Mostrar opciones de donación';
+          showDonationButton.classList.replace('btn-outline-secondary', 'btn-outline-primary');
+        }
+      });
+    }
+
+    // Mostrar campos de donación si hay errores en alguno de ellos
+    const donationFieldsWithErrors = donationFieldsContainer?.querySelectorAll('.text-danger');
+    if (donationFieldsWithErrors?.length > 0) {
+      donationFieldsContainer.style.display = 'block';
+      showDonationButton.textContent = 'Ocultar opciones de donación';
+      showDonationButton.classList.replace('btn-outline-primary', 'btn-outline-secondary');
+    }
+
+    const tipoSolcaSelect = document.getElementById('{{ form.tipo_solca.id_for_label }}');
+    const solcaInput = document.getElementById('{{ form.solca.id_for_label }}');
+    const solcaSymbol = document.getElementById('solca-symbol');
+    const montoInput = document.getElementById('{{ form.monto.id_for_label }}');
+
+    if (tipoSolcaSelect && solcaInput && montoInput) {
+      // Función para actualizar el campo SOLCA según el tipo seleccionado
+      function updateSolcaField() {
+        const tipoSolca = tipoSolcaSelect.value;
+
+        if (!tipoSolca) {
+          solcaInput.value = '';
+          solcaInput.readOnly = true;
+          solcaInput.placeholder = '';
+          solcaSymbol.textContent = '';
+          solcaInput.classList.add('bg-light');
+          return;
+        }
+
+        if (tipoSolca === 'porcentaje') {
+          solcaInput.value = '0.5';
+          solcaInput.readOnly = true;
+          solcaSymbol.textContent = '%';
+          solcaInput.classList.add('bg-light');
+          solcaInput.placeholder = '';
+        } else if (tipoSolca === 'monto') {
+          solcaInput.readOnly = false;
+          solcaSymbol.textContent = '$';
+          solcaInput.classList.remove('bg-light');
+
+          const monto = parseFloat(montoInput.value) || 0;
+          const maxSolca = (monto * 0.005).toFixed(2);
+
+          if (!solcaInput.value || solcaInput.value === '0.5') {
+            solcaInput.value = maxSolca;
+          }
+          solcaInput.placeholder = `Máx: $${maxSolca}`;
+
+          if (parseFloat(solcaInput.value) > parseFloat(maxSolca)) {
+            solcaInput.value = maxSolca;
+          }
+        }
+      }
+
+      updateSolcaField();
+
+      tipoSolcaSelect.addEventListener('change', updateSolcaField);
+
+      montoInput.addEventListener('input', function () {
+        if (tipoSolcaSelect.value === 'monto') {
+          const monto = parseFloat(this.value) || 0;
+          const maxSolca = (monto * 0.005).toFixed(2);
+          solcaInput.placeholder = `Máx: $${maxSolca}`;
+
+          if (parseFloat(solcaInput.value) > parseFloat(maxSolca)) {
+            solcaInput.value = maxSolca;
+          }
+        }
+      });
+
+      // Validar el valor ingresado en tiempo real
+      solcaInput.addEventListener('input', function () {
+        if (tipoSolcaSelect.value === 'monto') {
+          const monto = parseFloat(montoInput.value) || 0;
+          const maxSolca = monto * 0.005;
+          const currentValue = parseFloat(this.value) || 0;
+
+          if (currentValue > maxSolca) {
+            this.setCustomValidity(`No puede superar el 0.5% del monto ($${maxSolca.toFixed(2)})`);
+          } else {
+            this.setCustomValidity('');
+          }
+        }
+      });
+    }
+
+    /* Donaciones */
+
+    const tipoDonacionSelect = document.getElementById("id_tipo_donacion");
+    const donacionInput = document.getElementById("id_donacion");
+    const donacionSymbol = document.getElementById("donacion-symbol");
+
+    function actualizarCamposDonacion() {
+      const tipo = tipoDonacionSelect?.value;
+
+      if (!tipo || tipo === "---------") {
+        donacionInput.value = "";
+        donacionInput.disabled = true;
+        donacionInput.setCustomValidity("Seleccione un tipo de donación primero.");
+        donacionSymbol.textContent = "$";
+        return;
+      }
+
+      donacionInput.disabled = false;
+      donacionInput.setCustomValidity(""); // limpiar mensajes previos
+
+      if (tipo === "porcentaje") {
+        donacionInput.setAttribute("min", "0");
+        donacionInput.setAttribute("step", "0.01");
+        donacionSymbol.textContent = "%";
+      } else if (tipo === "monto") {
+        donacionInput.setAttribute("min", "0");
+        donacionInput.setAttribute("step", "0.01");
+        donacionSymbol.textContent = "$";
+      }
+    }
+
+    function validarDonacion() {
+      const tipo = tipoDonacionSelect?.value;
+      const donacion = parseFloat(donacionInput.value || "0");
+      const monto = parseFloat(montoInput?.value || "0");
+
+      donacionInput.setCustomValidity(""); // limpiar antes de validar
+
+      if (tipo === "porcentaje") {
+        const maxPorcentaje = 10;
+        if (donacion > maxPorcentaje) {
+          donacionInput.setCustomValidity(`No puede superar el 10% (${maxPorcentaje}%)`);
+        }
+      }
+
+      if (tipo === "monto") {
+        const maxMonto = monto * 0.10;
+        if (donacion > maxMonto) {
+          donacionInput.setCustomValidity(`No puede superar el 10% del monto ($${maxMonto.toFixed(2)})`);
+        }
+      }
+
+      donacionInput.reportValidity(); // forzar que aparezca el tooltip si hay error
+    }
+
+    // Eventos
+    tipoDonacionSelect?.addEventListener("change", () => {
+      actualizarCamposDonacion();
+      validarDonacion();
+    });
+
+    donacionInput?.addEventListener("input", validarDonacion);
+    montoInput?.addEventListener("input", validarDonacion);
+
+    actualizarCamposDonacion();
+
+    /* Cambiar plazos */
+    const tipoCreditoSelect = document.getElementById("tipoCreditoSelect");
+    const plazoSelect = document.querySelector("select[name='plazo_meses']");
+
+    tipoCreditoSelect.addEventListener("change", function () {
+      const selectedOption = this.options[this.selectedIndex];
+      const tipoSeleccionado = selectedOption.getAttribute("data-tipo");
+
+      const opcionesDisponibles = PLAZO_OPCIONES[tipoSeleccionado] || [];
+
+      // Limpiar opciones previas
+      plazoSelect.innerHTML = "";
+
+      // Agregar nuevas opciones
+      opcionesDisponibles.forEach(meses => {
+        const option = document.createElement("option");
+        option.value = meses;
+        option.text = PLAZO_CHOICES[meses] || `${meses} meses`;
+        plazoSelect.appendChild(option);
+      });
+      const monto = parseFloat(montoInput.value) || 0;
+      console.log("Opciones disponibles:", tipoCreditoSelect);
+    });
+
+    // Obtener el valor previamente enviado
+    const valorSeleccionado = "{{ form.data.tipo_credito|default:'' }}";
+
+    if (valorSeleccionado) {
+      const select = document.getElementById("tipoCreditoSelect");
+      const opciones = select.options;
+
+      for (let i = 0; i < opciones.length; i++) {
+        if (opciones[i].value === valorSeleccionado) {
+          opciones[i].selected = true;
+          break;
+        }
+      }
+    }
+
+    /* Para valores minimos */
+    tipoCreditoSelect.addEventListener("change", function () {
+      const selectedOption = this.options[this.selectedIndex];
+      const tipoSeleccionado = selectedOption.getAttribute("data-tipo");
+      const monto = parseFloat(montoInput.value) || 0;
+      console.log("Opciones disponibles:", monto);
+      console.log("Opciones disponibles:", tipoSeleccionado);
+    });
+
+    const mensajeError = document.getElementById("monto-error");
+
+    function validarMontoMinimo() {
+      const selectedOption = tipoCreditoSelect.options[tipoCreditoSelect.selectedIndex];
+      const tipoSeleccionado = selectedOption.getAttribute("data-tipo");
+      const monto = parseFloat(montoInput.value) || 0;
+      const minimo = MONTOS_MINIMOS[tipoSeleccionado];
+
+      if (minimo !== undefined && monto < minimo) {
+        const mensaje = `El monto mínimo para ${tipoSeleccionado} es $${minimo.toLocaleString('es-EC', { minimumFractionDigits: 2 })}`;
+        montoInput.setCustomValidity(mensaje);
+        mensajeError.textContent = mensaje;
+        mensajeError.style.display = "block";
+      } else {
+        montoInput.setCustomValidity("");
+        mensajeError.textContent = "";
+        mensajeError.style.display = "none";
+      }
+    }
+
+    tipoCreditoSelect.addEventListener("change", validarMontoMinimo);
+    montoInput.addEventListener("input", validarMontoMinimo);
+
+  });
+</script>
+{% endblock %}

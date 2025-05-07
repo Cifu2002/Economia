@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+        h1, h2 { color: #2c3e50; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    {% if site_logo %}
+    <div style="text-align: center;"><img src="{{ site_logo }}" width="120"></div>
+    
+    {% endif %}
+    <div style="text-align: center;"><h1><strong>Banco</strong> {{ site_name }}</h1></div>
+    
+    <hr>
+    <p></p>
+    <div style="text-align: center;"><h1>Reporte de Simulación de Inversión</h1></div>
+    
+    
+    <hr>
+
+    <h2>Resumen</h2>
+    <p><strong>Monto Inicial:</strong> ${{ resultado.monto_inicial }}</p>
+    <p><strong>Tipo de Activo:</strong> {{ resultado.tipo_activo }}</p>
+    <p><strong>Plazo:</strong> {{ resultado.plazo_anos }} año(s)</p>
+    <p><strong>Reinversión:</strong> {% if resultado.reinvertir %}Sí{% else %}No{% endif %}</p>
+    <p><strong>Rentabilidad Esperada:</strong> {{ resultado.rentabilidad|floatformat:2 }}</p>
+    <p><strong>Valor Final Estimado:</strong> ${{ resultado.valor_final }}</p>
+
+    <h2>Detalle por período</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Período (Meses)</th>
+                <th>Capital</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for valor in resultado.valores %}
+                <tr>
+                    <td>{{ forloop.counter0 }}</td>
+                    <td>${{ valor|floatformat:2 }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

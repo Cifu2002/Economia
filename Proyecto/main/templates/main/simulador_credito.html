@@ -1,0 +1,342 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<!-- Bootstrap 5 CSS desde CDN -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<h4 class="mb-4">Simulador para {{ tipo_credito.nombre }}</h4>
+<div class="container mt-4 card p-4 shadow">
+  <div class="row">
+    <div class="col-6">
+      <label for="">Tipo de crédito {{tipo_credito.tipo}}</label>
+      <input type="hidden" id="tipoCreditoTipo" value="{{ tipo_credito.tipo }}">
+      <form method="post" class="mb-4">
+        {% csrf_token %}
+        <!-- Campo Monto con contenedor de error -->
+        <div class="mb-3">
+          <label for="{{ form.monto.id_for_label }}" class="form-label">
+            {{ form.monto.label }}
+          </label>
+          {{ form.monto }}
+          <div id="montoError" class="text-danger small"></div>
+          {% if form.monto.errors %}
+          <div class="text-danger small">{{ form.monto.errors }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Resto de campos automáticamente -->
+        {% for field in form %}
+        {% if field.name == 'monto' %}
+        {# ya lo renderizamos arriba #}
+        {% else %}
+        <div class="mb-3">
+          <label for="{{ field.id_for_label }}" class="form-label">
+            {{ field.label }}
+          </label>
+          {{ field }}
+          {% if field.help_text %}
+          <div class="form-text">{{ field.help_text }}</div>
+          {% endif %}
+          {% if field.errors %}
+          <div class="text-danger small">{{ field.errors }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+        <button type="submit" class="btn btn-primary ">Calcular</button>
+      </form>
+    </div>
+    <divclass="col-6">
+      {% if resultado %}
+
+      <h4>Resultado de la simulación</h4>
+      <ul class="list-group">
+        <!--<li class="list-group-item">Seguro mensual: ${{ resultado.seguro }}</li>-->
+        <li class="list-group-item"><strong>Cuota mensual (sin seguro): </strong> ${{ resultado.cuota }}</li>
+        {% if resultado.seguro_total > 0 %}
+        <li class="list-group-item"><strong>Seguro desgravamen total: </strong>${{ resultado.seguro_total }}</li>
+        {% endif %}
+        <!-- Otras Opciones -->
+        {% if resultado.donacion > 0 %}
+        {% if resultado.tipo_donacion == 'monto' %}
+        <li class="list-group-item"><strong>Donación total: </strong>${{ resultado.donacion }}</li>
+        {% elif resultado.tipo_donacion == 'porcentaje' %}
+        <li class="list-group-item"><strong>Donación total total: </strong>${{ resultado.donacion_dinero }}</li>
+        {% endif %}
+        {% endif %}
+
+        {% if resultado.solca > 0 %}
+        {% if resultado.tipo_solca == 'monto' %}
+        <li class="list-group-item"><strong>Total Solca: </strong>${{ resultado.solca }}</li>
+        {% elif resultado.tipo_solca == 'porcentaje' %}
+        <li class="list-group-item"><strong>Total Solca: </strong>${{ resultado.solca_dinero }}</li>
+        {% endif %}
+        {% endif %}
+        <li class="list-group-item"><strong>Cuota total mensual: </strong>${{ resultado.cuota_total }}</li>
+        <li class="list-group-item"><strong>Plazo: </strong>{{ resultado.plazo }} meses</li>
+        <li class="list-group-item"><strong>Interés efectivo anual: </strong>%{{ resultado.interes_efectivo }}</li>
+        <li class="list-group-item"><strong>Interés nominal anual: </strong>%{{ resultado.interes }}</li>
+
+        <li class="list-group-item"><strong>Total a pagar: </strong>${{ resultado.total_pagar }}</li>
+
+        <!--<li class="list-group-item">Plazo: {{ resultado.plazo }} meses</li>-->
+        <!--<li class="list-group-item">Método de pago: {{ resultado.metodo }}</li>-->
+
+      </ul>
+      <p>
+
+      </p>
+      {% if pdf_url %}
+      <a href="{{ pdf_url }}" class="btn btn-outline-info ms-auto" target="_blank">Descargar PDF</a>
+      {% endif %}
+  </div>
+  <br>
+  {% if resultado.tabla %}
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>Mes</th>
+        <th>Cuota</th>
+        <th>Interés</th>
+        <th>Capital</th>
+        {% if resultado.seguro_desgravamen %}
+        <th>Seguro</th>
+        {% endif %}
+        {% if resultado.donacion_mensual > 0 %}
+        <th>Donación</th>
+        {% endif %}
+        {% if resultado.solca_mensual > 0 %}
+        <th>SOLCA</th>
+        {% endif %}
+        <th>Cuota Total</th>
+        <th>Saldo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fila in resultado.tabla %}
+      <tr>
+        <td>{{ fila.mes }}</td>
+        <td>{{ fila.cuota }}</td>
+        <td>{{ fila.interes }}</td>
+        <td>{{ fila.capital }}</td>
+        {% if resultado.seguro_desgravamen %}
+        <td>{{ fila.seguro }}</td>
+        {% endif %}
+        {% if resultado.donacion_mensual > 0 %}
+        <td>{{ fila.donacion }}</td>
+        {% endif %}
+        {% if resultado.solca_mensual > 0 %}
+        <td>{{ fila.solca }}</td>
+        {% endif %}
+        <td>{{ fila.cuota_total }}</td>
+        <td>{{ fila.saldo }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+
+  </table>
+  {% endif %}
+</div>
+{% endif %}
+
+<a href="{{ request.META.HTTP_REFERER }}" class="btn btn-alert mt-3">← Volver</a>
+</div>
+</div>
+<script>
+  const PLAZO_OPCIONES = {
+    "Productivo Corporativo": [12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72],
+    "Productivo Empresarial": [12, 18, 24, 30, 36, 42, 48, 54, 60],
+    "Productivo PYMES": [6, 9, 12, 15, 18, 21, 24, 30, 36],
+    "Consumo": [6, 9, 12, 18, 24, 30, 36, 42, 48, 60],
+    "Educativo": [6, 9, 12, 18, 24, 30, 36],
+    "Educativo Social": [6, 9, 12, 15, 18, 21, 24],
+    "Vivienda de Interés Público": [60, 72, 84, 96, 108, 120, 132, 144, 156, 168, 180],
+    "Vivienda de Interés Social": [60, 72, 84, 96, 108, 120, 132, 144],
+    "Inmobiliario": [60, 66, 72, 78, 84, 90, 96, 102, 108, 114, 120],
+    "Microcrédito Minorista": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "Microcrédito de Acumulación Simple": [6, 9, 12, 15, 18, 21, 24],
+    "Microcrédito de Acumulación Ampliada": [6, 9, 12, 18, 24, 30, 36],
+    "Inversión Pública": [24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96]
+  };
+
+
+  const PLAZO_CHOICES = {
+    3: '3 meses',
+    4: '4 meses',
+    5: '5 meses',
+    6: '6 meses',
+    7: '7 meses',
+    8: '8 meses',
+    9: '9 meses',
+    10: '10 meses',
+    11: '11 meses',
+    12: '12 meses (1 año)',
+    15: '15 meses (1.25 años)',
+    18: '18 meses (1.5 años)',
+    21: '21 meses (1.75 años)',
+    24: '24 meses (2 años)',
+    30: '30 meses (2.5 años)',
+    36: '36 meses (3 años)',
+    42: '42 meses (3.5 años)',
+    48: '48 meses (4 años)',
+    54: '54 meses (4.5 años)',
+    60: '60 meses (5 años)',
+    66: '66 meses (5.5 años)',
+    72: '72 meses (6 años)',
+    78: '78 meses (6.5 años)',
+    84: '84 meses (7 años)',
+    90: '90 meses (7.5 años)',
+    96: '96 meses (8 años)',
+    102: '102 meses (8.5 años)',
+    108: '108 meses (9 años)',
+    114: '114 meses (9.5 años)',
+    120: '120 meses (10 años)',
+    126: '126 meses (10.5 años)',
+    132: '132 meses (11 años)',
+    144: '144 meses (12 años)',
+    150: '150 meses (12.5 años)',
+    156: '156 meses (13 años)',
+    168: '168 meses (14 años)',
+    180: '180 meses (15 años)'
+  };
+
+  const MONTOS_MINIMOS = {
+    "Productivo Corporativo": 5000,
+    "Productivo Empresarial": 1000,
+    "Productivo PYMES": 1000,
+    "Consumo": 500,
+    "Microcrédito Minorista": 500,
+    "Microcrédito de Acumulación Simple": 5000,
+    "Microcrédito de Acumulación Ampliada": 20000,
+    "Educativo": 500,
+    "Educativo Social": 500,
+    "Vivienda de Interés Social": 500,
+    "Vivienda de Interés Público": 1000,
+    "Inmobiliario": 1000,
+    "Inversión Pública": 1000
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const tipoSolca = document.getElementById('id_tipo_solca');
+    const solcaInput = document.getElementById('id_solca');
+    const tipoDonacion = document.getElementById('id_tipo_donacion');
+    const donacionInput = document.getElementById('id_donacion');
+    const montoInput = document.getElementById('id_monto');
+
+    // Ajusta el campo de SOLCA según el tipo seleccionado
+    function updateSolca() {
+      const monto = parseFloat(montoInput.value) || 0;
+      if (tipoSolca.value === 'porcentaje') {
+        solcaInput.value = '0.5';
+        solcaInput.setAttribute('readonly', 'readonly');
+        solcaInput.removeAttribute('max');
+      } else if (tipoSolca.value === 'monto') {
+        solcaInput.removeAttribute('readonly');
+        const maxSolca = monto * 0.005;           // 0.5% del monto
+        solcaInput.setAttribute('max', maxSolca);
+        if (parseFloat(solcaInput.value) > maxSolca) {
+          solcaInput.value = maxSolca;
+        }
+      } else {
+        // Sin selección
+        solcaInput.removeAttribute('readonly');
+        solcaInput.removeAttribute('max');
+        if (solcaInput.value === '0.5') solcaInput.value = '';
+      }
+    }
+
+    // Lógica de donación (igual que antes)
+    function updateDonacion() {
+      const tipo = tipoDonacion.value;
+      let max = null;
+      if (tipo === 'porcentaje') {
+        max = 10;
+      } else if (tipo === 'monto') {
+        const m = parseFloat(montoInput.value) || 0;
+        max = m * 0.10;
+      }
+      if (max !== null) {
+        donacionInput.setAttribute('max', max);
+        donacionInput.removeAttribute('readonly');
+      } else {
+        donacionInput.removeAttribute('max');
+        donacionInput.removeAttribute('readonly');
+      }
+    }
+    function clampDonacion() {
+      const max = parseFloat(donacionInput.getAttribute('max'));
+      const val = parseFloat(donacionInput.value);
+      if (!isNaN(max) && val > max) donacionInput.value = max;
+    }
+
+    // Evita que SOLCA supere su máximo
+    function clampSolca() {
+      const max = parseFloat(solcaInput.getAttribute('max'));
+      const val = parseFloat(solcaInput.value);
+      if (!isNaN(max) && val > max) solcaInput.value = max;
+    }
+
+    // Bind de eventos
+    tipoSolca.addEventListener('change', updateSolca);
+    montoInput.addEventListener('input', updateSolca);
+    solcaInput.addEventListener('input', clampSolca);
+
+    tipoDonacion.addEventListener('change', updateDonacion);
+    montoInput.addEventListener('input', updateDonacion);
+    donacionInput.addEventListener('input', clampDonacion);
+
+    // Inicialización al cargar
+    updateSolca();
+    updateDonacion();
+
+
+    /* Rellenar meses y min monto */
+    const tipoHidden = document.getElementById('tipoCreditoTipo');
+    const tipoCredito = tipoHidden ? tipoHidden.value : '';
+
+    const montoError = document.getElementById('montoError');
+    const plazoSel = document.getElementById('id_plazo_meses');
+
+    function updatePlazosYMinimo() {
+      // 1) Monto mínimo
+      const min = MONTOS_MINIMOS[tipoCredito] || 0;
+      montoInput.min = min;
+
+      const val = parseFloat(montoInput.value);
+      if (isNaN(val) || val < min) {
+        montoError.textContent = `El monto mínimo para este tipo de crédito es $${min}`;
+      } else {
+        montoError.textContent = '';
+      }
+
+      // 2) Conservar la selección previa
+      const prev = plazoSel.value;
+
+      // 3) Rellenar plazos
+      const lista = PLAZO_OPCIONES[tipoCredito] || [];
+      plazoSel.innerHTML = '<option value="">---------</option>';
+      lista.forEach(m => {
+        const o = document.createElement('option');
+        o.value = m;
+        o.text = PLAZO_CHOICES[m] || `${m} meses`;
+        plazoSel.append(o);
+      });
+
+      // 4) Restaurar selección si sigue en la lista
+      if (prev && lista.includes(parseInt(prev))) {
+        plazoSel.value = prev;
+      }
+    }
+
+    montoInput.addEventListener('input', updatePlazosYMinimo);
+
+    // Iniciar todo al cargar
+    updatePlazosYMinimo();
+
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+
+{% extends 'home/base.html' %}
+
+{% block title %}Simulador de Créditos - Banco {{site_name}}{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <h1 class="display-4">Tu dinero, en buenas manos o algo así</h1>
+    <p class="lead">Confianza, tecnología y atención personalizada en un solo lugar.</p>
+    <p class="lead">{{site_name}}: Más allá del ahorro. Más allá del entendimiento.</p>
+    <a class="btn btn-light btn-lg" href="{% url 'nuevo' %}">Abre tu cuenta hoy</a>
+  </div>
+</section>
+<section class="py-5">
+    <div class="container text-center">
+      <h2 class="mb-4">Nuestros Servicios</h2>
+      <div class="row">
+        
+        <div class="col-md-4">
+          <a href="{% url 'cuentas' %}" class="text-decoration-none text-dark">
+            <div class="border rounded p-4 shadow-sm h-100 hover-shadow">
+              <div class="servicio-icono mb-3">💳</div>
+              <h5>Cuentas Bancarias</h5>
+              <p>Ahorra y maneja tu dinero con total seguridad.</p>
+            </div>
+          </a>
+        </div>
+        
+        <div class="col-md-4">
+          <a href="{% url 'main:home' %}" class="text-decoration-none text-dark">
+            <div class="border rounded p-4 shadow-sm h-100">
+              <div class="servicio-icono mb-3">🏦</div>
+              <h5>Simulador de Préstamos</h5>
+              <p>Créditos flexibles para todos tus proyectos.</p>
+            </div>
+          </a>
+        </div>
+  
+        <div class="col-md-4">
+          <a href="{% url 'inversiones' %}" class="text-decoration-none text-dark">
+            <div class="border rounded p-4 shadow-sm h-100">
+              <div class="servicio-icono mb-3">📱</div>
+              <h5>Simulador de Inversiones</h5>
+              <p>Invierte con Nosotros, haz tu dinero crecer.</p>
+            </div>
+          </a>
+        </div>
+  
+      </div>
+    </div>
+  </section>
+
+
+<!-- Footer -->
+
+{% endblock %}

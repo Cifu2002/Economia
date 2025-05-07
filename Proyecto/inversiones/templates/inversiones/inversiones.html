@@ -1,0 +1,94 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Simulador de Créditos - Banco {{site_name}}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="container">
+        <h1 class="display-4">Simulador de Inversiones</h1>
+        <p class="lead">Calcula cómo tu dinero se invertirá en el futuro</p>
+    </div>
+</section>
+
+<section class="container py-4">
+    <form method="post" class="card p-4 shadow">
+        {% csrf_token %}
+        <h4 class="mb-4">Completa los datos:</h4>
+
+        <div class="mb-3">
+            {{ form.monto.label_tag }}
+            {{ form.monto }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.tipo_activo.label_tag }}
+            {{ form.tipo_activo }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.plazo.label_tag }}
+            {{ form.plazo }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.unidad_tiempo.label_tag }}
+            {{ form.unidad_tiempo }}
+        </div>
+
+        <!-- <div class="form-check mb-3">
+            {{ form.reinvertir }} {{ form.reinvertir.label_tag }}
+        </div> -->
+
+        <button type="submit" class="btn btn-primary">Simular Inversión</button>
+    </form>
+
+    {% if resultado %}
+    <section class="container card p-4 shadow mt-4">
+        <hr>
+        <h2>Resultado de la Simulación</h2>
+        <hr>
+        <p><strong>Monto Inicial:</strong> ${{ resultado.monto_inicial }}</p>
+        <p><strong>Tipo de Activo:</strong> {{ resultado.tipo_activo }}</p>
+        <p><strong>Plazo:</strong> {{ resultado.plazo_anos }} años</p>
+        <!-- <p><strong>Reinversión:</strong> {% if resultado.reinvertir %}Sí{% else %}No{% endif %}</p> -->
+        <p><strong>Rentabilidad Esperada:</strong> {{ resultado.rentabilidad|floatformat:2 }}%</p>
+        <p><strong>Valor Final Estimado:</strong> ${{ resultado.valor_final }}</p>
+
+        <form method="post" action="{% url 'generar_pdf' %}">
+            {% csrf_token %}
+            <input type="hidden" name="resultado_json" value="{{ resultado_json|escape }}">
+            <div class="d-flex">
+                <button type="submit" class="btn btn-outline-info ms-auto">Descargar tabla de inversión (PDF)</button>
+            </div>
+        </form>
+    </section>
+    {% endif %}
+</section>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const tipoActivo = document.getElementById("id_tipo_activo");
+        const montoInput = document.getElementById("id_monto");
+
+        const minimos = {
+            'bonos': 500,
+            'acciones': 1000,
+            'fondos': 300
+        };
+
+        function actualizarMontoMinimo() {
+            const tipo = tipoActivo.value.trim();
+            const minimo = minimos[tipo];
+            if (minimo !== undefined) {
+                montoInput.min = minimo;
+                montoInput.placeholder = `Mínimo: $${minimo}`;
+            }
+        }
+
+        tipoActivo.addEventListener("change", actualizarMontoMinimo);
+        actualizarMontoMinimo();
+    });
+</script>
+
+{% endblock %}
